@@ -10,17 +10,13 @@ import {
 } from "lightweight-charts";
 import type React from "react";
 import { useEffect, useRef } from "react";
+import {
+	type VolumeProfileData,
+	generateMockCandlestickData,
+	generateMockVolumeProfileData,
+	generateStreamingPoint,
+} from "../utils/mockChartData";
 import { VolumeProfile } from "./VolumeProfile";
-
-interface VolumeProfileItem {
-	price: number;
-	vol: number;
-}
-
-interface VolumeProfileData {
-	profile: VolumeProfileItem[];
-	width: number;
-}
 
 interface ChartColors {
 	backgroundColor: string;
@@ -42,103 +38,11 @@ const defaultColors: ChartColors = {
 	wickDownColor: "#0c5b3b88",
 };
 
-const generateMockCandlestickData = (): (CandlestickData & {
-	volume: number;
-})[] => {
-	const data: (CandlestickData & { volume: number })[] = [];
-	const startPrice = 100;
-	let currentPrice = startPrice;
-
-	// Create a start date (e.g., 100 days ago)
-	const startDate = new Date();
-	startDate.setDate(startDate.getDate() - 100);
-
-	for (let i = 0; i < 100; i++) {
-		const currentDate = new Date(startDate);
-		currentDate.setDate(startDate.getDate() + i);
-
-		const open = currentPrice;
-		const close = open + (Math.random() - 0.5) * 10;
-		const high = Math.max(open, close) + Math.random() * 5;
-		const low = Math.min(open, close) - Math.random() * 5;
-		const volume = Math.floor(Math.random() * 1000) + 100;
-
-		data.push({
-			// Convert date to timestamp in seconds for lightweight-charts
-			time: Math.floor(currentDate.getTime() / 1000) as Time,
-			open,
-			high,
-			low,
-			close,
-			volume,
-		});
-		currentPrice = close;
-	}
-	return data;
-};
-
-const generateMockVolumeProfileData = (
-	candlestickData: (CandlestickData & { volume: number })[],
-): VolumeProfileItem[] => {
-	// Create price buckets for volume profile
-	const allPrices = candlestickData.flatMap((candle) => [
-		candle.high,
-		candle.low,
-	]);
-	const minPrice = Math.min(...allPrices);
-	const maxPrice = Math.max(...allPrices);
-	const priceRange = maxPrice - minPrice;
-	const numberOfBuckets = 15;
-	const bucketSize = priceRange / numberOfBuckets;
-
-	// Initialize buckets
-	const volumeBuckets = new Array(numberOfBuckets).fill(0);
-
-	// Distribute volume across price levels
-	for (const candle of candlestickData) {
-		const candleRange = candle.high - candle.low;
-		const volumePerPrice = candle.volume / candleRange;
-
-		for (let price = candle.low; price <= candle.high; price += 0.1) {
-			const bucketIndex = Math.floor((price - minPrice) / bucketSize);
-			if (bucketIndex >= 0 && bucketIndex < numberOfBuckets) {
-				volumeBuckets[bucketIndex] += volumePerPrice * 0.1;
-			}
-		}
-	}
-
-	// Create profile items
-	return volumeBuckets.map((vol, i) => ({
-		price: minPrice + (i + 0.5) * bucketSize,
-		vol: Math.round(vol / 1000), // Scale down the volume for display
-	}));
-};
-
-const generateStreamingPoint = (
-	lastCandle: CandlestickData & { volume: number },
-) => {
-	const time = (lastCandle.time as number) + 24 * 60 * 60; // Add one day
-	const open = lastCandle.close;
-	const close = open + (Math.random() - 0.5) * 10;
-	const high = Math.max(open, close) + Math.random() * 5;
-	const low = Math.min(open, close) - Math.random() * 5;
-	const volume = Math.floor(Math.random() * 1000) + 100;
-
-	return {
-		time: time as Time,
-		open,
-		high,
-		low,
-		close,
-		volume,
-	};
-};
-
 export const ChartComponent: React.FC = () => {
 	const chartContainerRef = useRef<HTMLDivElement>(null);
 	const chartRef = useRef<IChartApi | null>(null);
 	const candlestickSeriesRef = useRef<ISeriesApi<"Candlestick"> | null>(null);
-	const streamingIntervalRef = useRef<NodeJS.Timeout>();
+	const streamingIntervalRef = useRef<number | null>(null);
 	const candleDataRef = useRef<(CandlestickData & { volume: number })[]>([]);
 
 	useEffect(() => {
