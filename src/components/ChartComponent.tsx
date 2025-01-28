@@ -13,9 +13,11 @@ import { useEffect, useRef } from "react";
 import {
 	type VolumeProfileData,
 	generateMockCandlestickData,
+	generateMockHeatmapData,
 	generateMockVolumeProfileData,
 	generateStreamingPoint,
 } from "../utils/mockChartData";
+import { LiquidityHeatmap } from "./LiquidityHeatmap";
 import { VolumeProfile } from "./VolumeProfile";
 
 interface ChartColors {
@@ -112,36 +114,67 @@ export const ChartComponent: React.FC = () => {
 		const candlestickData = generateMockCandlestickData();
 		candlestickSeries.setData(candlestickData);
 
-		// Set volume data
-		const volumeData = candlestickData.map((d) => ({
-			time: d.time,
-			value: d.volume,
-			color:
-				d.close > d.open
-					? defaultColors.candleUpColor
-					: defaultColors.candleDownColor,
-		}));
-		volumeSeries.setData(volumeData);
-
-		// Generate and add volume profile using candlestick data
+		// Generate and set up volume profile
 		const profileData = generateMockVolumeProfileData(candlestickData);
 		const volumeProfileData: VolumeProfileData = {
 			profile: profileData,
 			width: 60,
 		};
 
-		// Add volume profile
+		// Create and attach the volume profile
 		const volumeProfile = new VolumeProfile(
 			chartRef.current,
 			candlestickSeries,
 			volumeProfileData,
 		);
+
+		// Force an initial update
+		volumeProfile.updateAllViews();
 		candlestickSeries.attachPrimitive(volumeProfile);
+
+		// Generate heatmap data based on candlestick data
+		const orders = generateMockHeatmapData(candlestickData);
+
+		// Add debugging logs
+		console.log("Generated heatmap orders:", orders);
+
+		const heatmapOrders = orders.flatMap((order) => [
+			// Create bid order
+			{
+				price: order.bid,
+				volume: order.bidVolume,
+				startTime: order.time,
+				endTime: order.endTime,
+				isBid: true,
+			},
+			// Create ask order
+			{
+				price: order.ask,
+				volume: order.askVolume,
+				startTime: order.time,
+				endTime: order.endTime,
+				isBid: false,
+			},
+		]);
+
+		console.log("Transformed heatmap orders:", heatmapOrders);
+
+		// Create and attach the heatmap
+		const liquidityHeatmap = new LiquidityHeatmap(
+			chartRef.current,
+			candlestickSeries,
+			{ orders: heatmapOrders },
+		);
+
+		// Force an initial update
+		liquidityHeatmap.updateAllViews();
+		candlestickSeries.attachPrimitive(liquidityHeatmap);
 
 		// Store the initial data
 		candleDataRef.current = candlestickData;
 
 		// Set up streaming updates
+		/*
 		streamingIntervalRef.current = setInterval(() => {
 			if (!candlestickSeriesRef.current || candleDataRef.current.length === 0)
 				return;
@@ -173,7 +206,7 @@ export const ChartComponent: React.FC = () => {
 			};
 			volumeProfile.update(volumeProfileData);
 		}, 1000); // Update every second
-
+		*/
 		window.addEventListener("resize", handleResize);
 
 		return () => {

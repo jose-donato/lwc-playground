@@ -95,3 +95,48 @@ export const generateStreamingPoint = (
 		volume,
 	};
 };
+
+interface HeatmapDataPoint {
+	time: Time;
+	endTime: Time; // When the order was filled or canceled
+	bid: number;
+	ask: number;
+	bidVolume: number;
+	askVolume: number;
+}
+
+export const generateMockHeatmapData = (
+	candlestickData: (CandlestickData & { volume: number })[],
+): HeatmapDataPoint[] => {
+	const data: HeatmapDataPoint[] = [];
+
+	candlestickData.forEach((candle) => {
+		const currentPrice = candle.close;
+
+		// Generate spread between 0.5% and 1.5% of price
+		const spreadPercentage = 0.005 + Math.random() * 0.01;
+		const spread = currentPrice * spreadPercentage;
+
+		// Set bid slightly below and ask slightly above current price
+		const bid = currentPrice - spread / 2;
+		const ask = currentPrice + spread / 2;
+
+		// Generate random duration between 1 hour and 24 hours
+		const startTime = candle.time as number;
+		const durationInSeconds = Math.floor(
+			Math.random() * (24 * 60 * 60 - 3600) + 3600,
+		);
+		const endTime = startTime + durationInSeconds;
+
+		data.push({
+			time: startTime as Time,
+			endTime: endTime as Time,
+			bid,
+			ask,
+			bidVolume: Math.floor(Math.random() * 5000) + 1000,
+			askVolume: Math.floor(Math.random() * 5000) + 1000,
+		});
+	});
+
+	return data;
+};

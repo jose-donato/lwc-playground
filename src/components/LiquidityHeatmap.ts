@@ -50,8 +50,9 @@ class LiquidityHeatmapRenderer implements ISeriesPrimitivePaneRenderer {
 			const ctx = scope.context;
 
 			this._data.items.forEach((item) => {
-				if (item.y === null || item.startX === null || item.endX === null)
+				if (item.y === null || item.startX === null || item.endX === null) {
 					return;
+				}
 
 				const itemVerticalPos = positionsBox(
 					item.y - this._data.lineHeight / 2,
@@ -102,7 +103,7 @@ class LiquidityHeatmapPaneView implements ISeriesPrimitivePaneView {
 		this._items = data.orders.map((order) => {
 			const y = series.priceToCoordinate(order.price);
 			const startX = timeScale.timeToCoordinate(order.startTime);
-			const endX = timeScale.timeToCoordinate(order.endTime);
+			const endX = startX !== null ? startX + 20 : null;
 
 			return {
 				y,
