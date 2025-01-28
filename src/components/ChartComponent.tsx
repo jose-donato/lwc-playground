@@ -5,11 +5,14 @@ import {
 	type DeepPartial,
 	type IChartApi,
 	type ISeriesApi,
+	type MouseEventParams,
 	type Time,
 	createChart,
 } from "lightweight-charts";
 import type React from "react";
-import { useEffect, useRef } from "react";
+import { useEffect, useRef, useState } from "react";
+import { VerticalLine } from "../plugins/VerticalLine";
+import { DrawingToolType } from "../types/drawingTools";
 import {
 	type VolumeProfileData,
 	generateMockCandlestickData,
@@ -17,6 +20,8 @@ import {
 	generateMockVolumeProfileData,
 	generateStreamingPoint,
 } from "../utils/mockChartData";
+import { DrawingToolbar } from "./DrawingToolbar";
+import { DrawingTools } from "./DrawingTools";
 import { LiquidityHeatmap } from "./LiquidityHeatmap";
 import { VolumeProfile } from "./VolumeProfile";
 
@@ -46,6 +51,9 @@ export const ChartComponent: React.FC = () => {
 	const candlestickSeriesRef = useRef<ISeriesApi<"Candlestick"> | null>(null);
 	const streamingIntervalRef = useRef<number | null>(null);
 	const candleDataRef = useRef<(CandlestickData & { volume: number })[]>([]);
+	const [activeTool, setActiveTool] = useState<DrawingToolType>(
+		DrawingToolType.NONE,
+	);
 
 	useEffect(() => {
 		if (!chartContainerRef.current) return;
@@ -76,6 +84,24 @@ export const ChartComponent: React.FC = () => {
 				horzLines: {
 					color: defaultColors.gridColor,
 					visible: true,
+				},
+			},
+			crosshair: {
+				// Enable crosshair for better drawing precision
+				mode: 1,
+				vertLine: {
+					width: 1,
+					color: "#ffffff33",
+					style: 2,
+					visible: true,
+					labelVisible: false,
+				},
+				horzLine: {
+					width: 1,
+					color: "#ffffff33",
+					style: 2,
+					visible: true,
+					labelVisible: true,
 				},
 			},
 		};
@@ -114,24 +140,6 @@ export const ChartComponent: React.FC = () => {
 		const candlestickData = generateMockCandlestickData();
 		candlestickSeries.setData(candlestickData);
 
-		// Generate and set up volume profile
-		const profileData = generateMockVolumeProfileData(candlestickData);
-		const volumeProfileData: VolumeProfileData = {
-			profile: profileData,
-			width: 60,
-		};
-
-		// Create and attach the volume profile
-		const volumeProfile = new VolumeProfile(
-			chartRef.current,
-			candlestickSeries,
-			volumeProfileData,
-		);
-
-		// Force an initial update
-		volumeProfile.updateAllViews();
-		candlestickSeries.attachPrimitive(volumeProfile);
-
 		// Generate heatmap data based on candlestick data
 		const orders = generateMockHeatmapData(candlestickData);
 
@@ -169,6 +177,23 @@ export const ChartComponent: React.FC = () => {
 		// Force an initial update
 		liquidityHeatmap.updateAllViews();
 		candlestickSeries.attachPrimitive(liquidityHeatmap);
+
+		// Add volumeProfile to candlestick series after creating the heatmap
+		const profileData = generateMockVolumeProfileData(candlestickData);
+		const volumeProfileData: VolumeProfileData = {
+			profile: profileData,
+			width: 60,
+		};
+
+		const volumeProfile = new VolumeProfile(
+			chartRef.current,
+			candlestickSeries,
+			volumeProfileData,
+		);
+
+		// Force an initial update
+		volumeProfile.updateAllViews();
+		candlestickSeries.attachPrimitive(volumeProfile);
 
 		// Store the initial data
 		candleDataRef.current = candlestickData;
@@ -220,7 +245,50 @@ export const ChartComponent: React.FC = () => {
 		};
 	}, []);
 
+	// Handle mouse interactions based on active tool
+	useEffect(() => {
+		const chart = chartRef.current;
+		const series = candlestickSeriesRef.current;
+
+		if (!chart || !series) return;
+
+		const handleClick = (param: MouseEventParams) => {
+			if (!param.point) return;
+
+			if (activeTool === DrawingToolType.VERTICAL_LINE) {
+				if (param.time) {
+					const vertLine = new VerticalLine(chart, series, param.time, {
+						color: "#4444ff",
+						width: 2,
+						showLabel: true,
+						labelText: "V-Line",
+					});
+					series.attachPrimitive(vertLine);
+					setActiveTool(DrawingToolType.NONE); // Reset tool after drawing
+				}
+			}
+		};
+
+		chart.subscribeClick(handleClick);
+
+		return () => {
+			chart.unsubscribeClick(handleClick);
+		};
+	}, [activeTool]);
+
 	return (
-		<div ref={chartContainerRef} style={{ width: "100%", height: "400px" }} />
+		<div>
+			<DrawingToolbar
+				activeTool={activeTool}
+				onToolSelect={setActiveTool}
+				chart={chartRef.current}
+				series={candlestickSeriesRef.current}
+			/>
+			<div
+				ref={chartContainerRef}
+				style={{ width: "100%", height: "400px" }}
+				className={`cursor-${activeTool === DrawingToolType.NONE ? "default" : "crosshair"}`}
+			/>
+		</div>
 	);
 };
