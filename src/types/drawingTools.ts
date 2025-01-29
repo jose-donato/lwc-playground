@@ -6,4 +6,5 @@ export enum DrawingToolType {
 	TREND_LINE = "trend_line",
 	FIBONACCI = "fibonacci",
 	RECTANGLE = "rectangle",
+	DELTA = "delta",
 }

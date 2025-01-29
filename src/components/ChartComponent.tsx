@@ -9,6 +9,7 @@ import {
 	type Time,
 	createChart,
 } from "lightweight-charts";
+import type { LineData } from "lightweight-charts";
 import type React from "react";
 import { useEffect, useRef, useState } from "react";
 import { HeatmapIndicator } from "../plugins/HeatmapIndicator/HeatmapIndicator";
@@ -21,6 +22,7 @@ import {
 	generateMockVolumeProfileData,
 	generateStreamingPoint,
 } from "../utils/mockChartData";
+import { DeltaTooltip } from "./DeltaTooltip";
 import { DrawingToolbar } from "./DrawingToolbar";
 import { DrawingTools } from "./DrawingTools";
 
@@ -44,6 +46,12 @@ const defaultColors: ChartColors = {
 	wickDownColor: "#0c5b3b88",
 };
 
+// Add chart type enum above the ChartColors interface
+enum ChartType {
+	CANDLESTICK = "candlestick",
+	LINE = "line",
+}
+
 export const ChartComponent: React.FC = () => {
 	const chartContainerRef = useRef<HTMLDivElement>(null);
 	const chartRef = useRef<IChartApi | null>(null);
@@ -57,6 +65,8 @@ export const ChartComponent: React.FC = () => {
 	const [showVPVR, setShowVPVR] = useState(true);
 	const volumeSeriesRef = useRef<ISeriesApi<"Histogram"> | null>(null);
 	const volumeProfileRef = useRef<VolumeProfile | null>(null);
+	const [chartType, setChartType] = useState<ChartType>(ChartType.CANDLESTICK);
+	const lineSeriesRef = useRef<ISeriesApi<"Line"> | null>(null);
 
 	useEffect(() => {
 		if (!chartContainerRef.current) return;
@@ -212,6 +222,20 @@ export const ChartComponent: React.FC = () => {
 		*/
 		window.addEventListener("resize", handleResize);
 
+		// Add line series but hide it initially
+		const lineSeries = chartRef.current.addLineSeries({
+			color: defaultColors.candleUpColor,
+			visible: false,
+		});
+		lineSeriesRef.current = lineSeries;
+
+		// Set line data
+		const lineData = candlestickData.map((candle) => ({
+			time: candle.time,
+			value: candle.close,
+		}));
+		lineSeries.setData(lineData);
+
 		return () => {
 			if (streamingIntervalRef.current) {
 				clearInterval(streamingIntervalRef.current);
@@ -240,9 +264,30 @@ export const ChartComponent: React.FC = () => {
 		}
 	}, [showVPVR]);
 
+	// Add new effect to handle chart type changes
+	useEffect(() => {
+		if (!candlestickSeriesRef.current || !lineSeriesRef.current) return;
+
+		if (chartType === ChartType.CANDLESTICK) {
+			candlestickSeriesRef.current.applyOptions({ visible: true });
+			lineSeriesRef.current.applyOptions({ visible: false });
+		} else {
+			candlestickSeriesRef.current.applyOptions({ visible: false });
+			lineSeriesRef.current.applyOptions({ visible: true });
+		}
+	}, [chartType]);
+
 	return (
 		<div>
-			<div className="flex gap-4 mb-4">
+			<div className="flex gap-4 mb-4 items-center justify-center">
+				<select
+					value={chartType}
+					onChange={(e) => setChartType(e.target.value as ChartType)}
+					className="px-2 py-1 rounded text-white"
+				>
+					<option value={ChartType.CANDLESTICK}>Candlestick</option>
+					<option value={ChartType.LINE}>Line</option>
+				</select>
 				<DrawingToolbar
 					activeTool={activeTool}
 					onToolSelect={setActiveTool}
@@ -270,7 +315,15 @@ export const ChartComponent: React.FC = () => {
 				ref={chartContainerRef}
 				style={{ width: "100%", height: "400px" }}
 				className={`cursor-${activeTool === DrawingToolType.NONE ? "default" : "crosshair"}`}
-			/>
+			>
+				{chartRef.current && candlestickSeriesRef.current && (
+					<DeltaTooltip
+						chart={chartRef.current}
+						series={candlestickSeriesRef.current}
+						activeTool={activeTool}
+					/>
+				)}
+			</div>
 		</div>
 	);
 };
