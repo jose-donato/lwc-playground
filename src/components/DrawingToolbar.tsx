@@ -1,7 +1,6 @@
 import type { IChartApi, ISeriesApi, SeriesType } from "lightweight-charts";
 import { useCallback } from "react";
 import type React from "react";
-import { VerticalLine } from "../plugins/VerticalLine";
 import { DrawingToolType } from "../types/drawingTools";
 
 interface DrawingToolbarProps {
@@ -24,8 +23,6 @@ export const DrawingToolbar: React.FC<DrawingToolbarProps> = ({
 				const visibleRange = chart.timeScale().getVisibleRange();
 				if (visibleRange) {
 					const time = visibleRange.from;
-					const vertLine = new VerticalLine(chart, series, time);
-					series.attachPrimitive(vertLine);
 				}
 			}
 			onToolSelect(tool);
