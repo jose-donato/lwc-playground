@@ -54,6 +54,10 @@ export const ChartComponent: React.FC = () => {
 	const [activeTool, setActiveTool] = useState<DrawingToolType>(
 		DrawingToolType.NONE,
 	);
+	const [showVolume, setShowVolume] = useState(true);
+	const [showVPVR, setShowVPVR] = useState(true);
+	const volumeSeriesRef = useRef<ISeriesApi<"Histogram"> | null>(null);
+	const volumeProfileRef = useRef<VolumeProfile | null>(null);
 
 	useEffect(() => {
 		if (!chartContainerRef.current) return;
@@ -127,11 +131,13 @@ export const ChartComponent: React.FC = () => {
 				type: "volume",
 			},
 			priceScaleId: "volume",
+			visible: showVolume,
 		});
+		volumeSeriesRef.current = volumeSeries;
 
 		volumeSeries.priceScale().applyOptions({
 			scaleMargins: {
-				top: 0.9,
+				top: 0.8,
 				bottom: 0,
 			},
 		});
@@ -139,6 +145,17 @@ export const ChartComponent: React.FC = () => {
 		// Set mock candlestick data
 		const candlestickData = generateMockCandlestickData();
 		candlestickSeries.setData(candlestickData);
+
+		// Set volume data
+		const volumeData = candlestickData.map((candle) => ({
+			time: candle.time,
+			value: candle.volume || 0,
+			color:
+				(candle.close || 0) >= (candle.open || 0)
+					? defaultColors.candleUpColor
+					: defaultColors.candleDownColor,
+		}));
+		volumeSeries.setData(volumeData);
 
 		// Generate heatmap data based on candlestick data
 		const orders = generateMockHeatmapData(candlestickData);
@@ -190,6 +207,11 @@ export const ChartComponent: React.FC = () => {
 			candlestickSeries,
 			volumeProfileData,
 		);
+		volumeProfileRef.current = volumeProfile;
+
+		if (!showVPVR) {
+			volumeProfile.setVisible(false);
+		}
 
 		// Force an initial update
 		volumeProfile.updateAllViews();
@@ -276,14 +298,45 @@ export const ChartComponent: React.FC = () => {
 		};
 	}, [activeTool]);
 
+	// Add effect to handle visibility changes
+	useEffect(() => {
+		if (volumeSeriesRef.current) {
+			volumeSeriesRef.current.applyOptions({ visible: showVolume });
+		}
+	}, [showVolume]);
+
+	useEffect(() => {
+		if (volumeProfileRef.current) {
+			volumeProfileRef.current.setVisible(showVPVR);
+		}
+	}, [showVPVR]);
+
 	return (
 		<div>
-			<DrawingToolbar
-				activeTool={activeTool}
-				onToolSelect={setActiveTool}
-				chart={chartRef.current}
-				series={candlestickSeriesRef.current}
-			/>
+			<div className="flex gap-4 mb-4">
+				<DrawingToolbar
+					activeTool={activeTool}
+					onToolSelect={setActiveTool}
+					chart={chartRef.current}
+					series={candlestickSeriesRef.current}
+				/>
+				<label className="flex items-center gap-2">
+					<input
+						type="checkbox"
+						checked={showVolume}
+						onChange={(e) => setShowVolume(e.target.checked)}
+					/>
+					Show Volume
+				</label>
+				<label className="flex items-center gap-2">
+					<input
+						type="checkbox"
+						checked={showVPVR}
+						onChange={(e) => setShowVPVR(e.target.checked)}
+					/>
+					Show VPVR
+				</label>
+			</div>
 			<div
 				ref={chartContainerRef}
 				style={{ width: "100%", height: "400px" }}

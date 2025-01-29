@@ -136,6 +136,7 @@ export class VolumeProfile implements ISeriesPrimitive<Time> {
 	_minPrice: number;
 	_maxPrice: number;
 	_paneViews: VolumeProfilePaneView[];
+	private _visible = true;
 
 	constructor(
 		chart: IChartApi,
@@ -152,6 +153,11 @@ export class VolumeProfile implements ISeriesPrimitive<Time> {
 			if (vpData.price > this._maxPrice) this._maxPrice = vpData.price;
 		});
 		this._paneViews = [new VolumeProfilePaneView(this)];
+	}
+
+	setVisible(visible: boolean): void {
+		this._visible = visible;
+		this.updateAllViews();
 	}
 
 	update(newVpData: VolumeProfileData) {
@@ -172,6 +178,11 @@ export class VolumeProfile implements ISeriesPrimitive<Time> {
 	}
 
 	updateAllViews() {
+		if (!this._visible) {
+			this._paneViews = [];
+			return;
+		}
+		this._paneViews = [new VolumeProfilePaneView(this)];
 		this._paneViews.forEach((pw) => pw.update());
 	}
 
