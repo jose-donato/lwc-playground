@@ -7,11 +7,13 @@ import type {
 	ISeriesPrimitive,
 	ISeriesPrimitivePaneRenderer,
 	ISeriesPrimitivePaneView,
+	SeriesAttachedParameter,
 	SeriesOptionsMap,
 	SeriesType,
 	Time,
 } from "lightweight-charts";
-import { positionsBox } from "../utils/chart";
+import { positionsBox } from "../../utils/chart";
+import { PluginBase } from "../PluginBase";
 
 interface VolumeProfileItem {
 	y: Coordinate | null;
@@ -88,9 +90,9 @@ class VolumeProfilePaneView implements ISeriesPrimitivePaneView {
 	}
 
 	update() {
-		const data = this._source._vpData;
-		const series = this._source._series;
-		this._x = this._source._chart.timeScale().width() as Coordinate;
+		const data = this._source.vpData;
+		const series = this._source.series;
+		this._x = this._source.chart.timeScale().width() as Coordinate;
 		this._width = data.width;
 
 		// Calculate the height of a single price level
@@ -129,64 +131,58 @@ class VolumeProfilePaneView implements ISeriesPrimitivePaneView {
 	}
 }
 
-export class VolumeProfile implements ISeriesPrimitive<Time> {
-	_chart: IChartApi;
-	_series: ISeriesApi<keyof SeriesOptionsMap>;
-	_vpData: VolumeProfileData;
-	_minPrice: number;
-	_maxPrice: number;
-	_paneViews: VolumeProfilePaneView[];
-	private _visible = true;
+export class VolumeProfile extends PluginBase {
+	private _vpData: VolumeProfileData;
+	private _minPrice: number;
+	private _maxPrice: number;
+	private _paneViews: VolumeProfilePaneView[];
 
-	constructor(
-		chart: IChartApi,
-		series: ISeriesApi<SeriesType>,
-		vpData: VolumeProfileData,
-	) {
-		this._chart = chart;
-		this._series = series;
+	constructor(vpData: VolumeProfileData) {
+		super();
 		this._vpData = vpData;
 		this._minPrice = Number.POSITIVE_INFINITY;
 		this._maxPrice = Number.NEGATIVE_INFINITY;
-		this._vpData.profile.forEach((vpData) => {
-			if (vpData.price < this._minPrice) this._minPrice = vpData.price;
-			if (vpData.price > this._maxPrice) this._maxPrice = vpData.price;
-		});
-		this._paneViews = [new VolumeProfilePaneView(this)];
+		this._paneViews = [];
+
+		this.updatePriceBounds();
 	}
 
-	setVisible(visible: boolean): void {
-		this._visible = visible;
+	// Override the attached method from PluginBase
+	public attached(param: SeriesAttachedParameter<Time>): void {
+		// Call parent's attached method first
+		super.attached(param);
+
+		// Now that we have series and chart, initialize views
 		this.updateAllViews();
 	}
 
-	update(newVpData: VolumeProfileData) {
-		this._vpData = newVpData;
-
-		// Reset min/max prices
+	private updatePriceBounds(): void {
 		this._minPrice = Number.POSITIVE_INFINITY;
 		this._maxPrice = Number.NEGATIVE_INFINITY;
 
-		// Recalculate min/max prices
 		this._vpData.profile.forEach((vpData) => {
 			if (vpData.price < this._minPrice) this._minPrice = vpData.price;
 			if (vpData.price > this._maxPrice) this._maxPrice = vpData.price;
 		});
+	}
 
-		// Update all views to reflect new data
+	public update(newVpData: VolumeProfileData): void {
+		this._vpData = newVpData;
+		this.updatePriceBounds();
 		this.updateAllViews();
 	}
 
-	updateAllViews() {
-		if (!this._visible) {
+	public updateAllViews(): void {
+		if (!this.shouldRender()) {
 			this._paneViews = [];
 			return;
 		}
+
 		this._paneViews = [new VolumeProfilePaneView(this)];
 		this._paneViews.forEach((pw) => pw.update());
 	}
 
-	autoscaleInfo(): AutoscaleInfo {
+	public autoscaleInfo(): AutoscaleInfo {
 		return {
 			priceRange: {
 				minValue: this._minPrice,
@@ -195,7 +191,16 @@ export class VolumeProfile implements ISeriesPrimitive<Time> {
 		};
 	}
 
-	paneViews() {
+	public paneViews() {
+		// Return empty array when not visible
+		if (!this.isVisible()) {
+			return [];
+		}
 		return this._paneViews;
+	}
+
+	// Getter for vpData that VolumeProfilePaneView needs
+	public get vpData(): VolumeProfileData {
+		return this._vpData;
 	}
 }

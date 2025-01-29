@@ -1,7 +1,6 @@
 import type { IChartApi, ISeriesApi, SeriesType } from "lightweight-charts";
 import { useCallback } from "react";
 import type React from "react";
-import { VerticalLine } from "../plugins/VerticalLine";
 import { DrawingToolType } from "../types/drawingTools";
 
 interface DrawingToolbarProps {
@@ -24,8 +23,6 @@ export const DrawingToolbar: React.FC<DrawingToolbarProps> = ({
 				const visibleRange = chart.timeScale().getVisibleRange();
 				if (visibleRange) {
 					const time = visibleRange.from;
-					const vertLine = new VerticalLine(chart, series, time);
-					series.attachPrimitive(vertLine);
 				}
 			}
 			onToolSelect(tool);
@@ -35,12 +32,13 @@ export const DrawingToolbar: React.FC<DrawingToolbarProps> = ({
 
 	const tools = [
 		{ type: DrawingToolType.NONE, label: "🖐️ Select" },
-		{ type: DrawingToolType.LINE, label: "📏 Line" },
+		{ type: DrawingToolType.DELTA, label: "📊 Measure" },
+		/*{ type: DrawingToolType.LINE, label: "📏 Line" },
 		{ type: DrawingToolType.HORIZONTAL_LINE, label: "➖ Horizontal" },
 		{ type: DrawingToolType.VERTICAL_LINE, label: "⋮ Vertical" },
 		{ type: DrawingToolType.TREND_LINE, label: "📈 Trend" },
 		{ type: DrawingToolType.FIBONACCI, label: "🌀 Fibonacci" },
-		{ type: DrawingToolType.RECTANGLE, label: "⬜ Rectangle" },
+		{ type: DrawingToolType.RECTANGLE, label: "⬜ Rectangle" },*/
 	];
 
 	return (

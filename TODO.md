@@ -1,2 +1,3 @@
 - [ ] see example 2 for drawing liquidity
-- [ ]
+- [ ] add emas
+- [ ] add jotai

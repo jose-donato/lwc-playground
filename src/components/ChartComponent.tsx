@@ -9,9 +9,11 @@ import {
 	type Time,
 	createChart,
 } from "lightweight-charts";
+import type { LineData } from "lightweight-charts";
 import type React from "react";
 import { useEffect, useRef, useState } from "react";
-import { VerticalLine } from "../plugins/VerticalLine";
+import { HeatmapIndicator } from "../plugins/HeatmapIndicator/HeatmapIndicator";
+import { VolumeProfile } from "../plugins/VolumeProfile/VolumeProfile";
 import { DrawingToolType } from "../types/drawingTools";
 import {
 	type VolumeProfileData,
@@ -20,10 +22,9 @@ import {
 	generateMockVolumeProfileData,
 	generateStreamingPoint,
 } from "../utils/mockChartData";
+import { DeltaTooltip } from "./DeltaTooltip";
 import { DrawingToolbar } from "./DrawingToolbar";
 import { DrawingTools } from "./DrawingTools";
-import { LiquidityHeatmap } from "./LiquidityHeatmap";
-import { VolumeProfile } from "./VolumeProfile";
 
 interface ChartColors {
 	backgroundColor: string;
@@ -45,6 +46,12 @@ const defaultColors: ChartColors = {
 	wickDownColor: "#0c5b3b88",
 };
 
+// Add chart type enum above the ChartColors interface
+enum ChartType {
+	CANDLESTICK = "candlestick",
+	LINE = "line",
+}
+
 export const ChartComponent: React.FC = () => {
 	const chartContainerRef = useRef<HTMLDivElement>(null);
 	const chartRef = useRef<IChartApi | null>(null);
@@ -58,6 +65,8 @@ export const ChartComponent: React.FC = () => {
 	const [showVPVR, setShowVPVR] = useState(true);
 	const volumeSeriesRef = useRef<ISeriesApi<"Histogram"> | null>(null);
 	const volumeProfileRef = useRef<VolumeProfile | null>(null);
+	const [chartType, setChartType] = useState<ChartType>(ChartType.CANDLESTICK);
+	const lineSeriesRef = useRef<ISeriesApi<"Line"> | null>(null);
 
 	useEffect(() => {
 		if (!chartContainerRef.current) return;
@@ -157,65 +166,22 @@ export const ChartComponent: React.FC = () => {
 		}));
 		volumeSeries.setData(volumeData);
 
-		// Generate heatmap data based on candlestick data
-		const orders = generateMockHeatmapData(candlestickData);
-
-		// Add debugging logs
-		console.log("Generated heatmap orders:", orders);
-
-		const heatmapOrders = orders.flatMap((order) => [
-			// Create bid order
-			{
-				price: order.bid,
-				volume: order.bidVolume,
-				startTime: order.time,
-				endTime: order.endTime,
-				isBid: true,
-			},
-			// Create ask order
-			{
-				price: order.ask,
-				volume: order.askVolume,
-				startTime: order.time,
-				endTime: order.endTime,
-				isBid: false,
-			},
-		]);
-
-		console.log("Transformed heatmap orders:", heatmapOrders);
-
-		// Create and attach the heatmap
-		const liquidityHeatmap = new LiquidityHeatmap(
-			chartRef.current,
-			candlestickSeries,
-			{ orders: heatmapOrders },
-		);
-
-		// Force an initial update
-		liquidityHeatmap.updateAllViews();
-		candlestickSeries.attachPrimitive(liquidityHeatmap);
-
-		// Add volumeProfile to candlestick series after creating the heatmap
+		// Create VolumeProfile with just the data
 		const profileData = generateMockVolumeProfileData(candlestickData);
 		const volumeProfileData: VolumeProfileData = {
 			profile: profileData,
 			width: 60,
 		};
 
-		const volumeProfile = new VolumeProfile(
-			chartRef.current,
-			candlestickSeries,
-			volumeProfileData,
-		);
+		const volumeProfile = new VolumeProfile(volumeProfileData);
 		volumeProfileRef.current = volumeProfile;
+
+		// Attach to series - this will trigger the attached method
+		candlestickSeries.attachPrimitive(volumeProfile);
 
 		if (!showVPVR) {
 			volumeProfile.setVisible(false);
 		}
-
-		// Force an initial update
-		volumeProfile.updateAllViews();
-		candlestickSeries.attachPrimitive(volumeProfile);
 
 		// Store the initial data
 		candleDataRef.current = candlestickData;
@@ -256,6 +222,20 @@ export const ChartComponent: React.FC = () => {
 		*/
 		window.addEventListener("resize", handleResize);
 
+		// Add line series but hide it initially
+		const lineSeries = chartRef.current.addLineSeries({
+			color: defaultColors.candleUpColor,
+			visible: false,
+		});
+		lineSeriesRef.current = lineSeries;
+
+		// Set line data
+		const lineData = candlestickData.map((candle) => ({
+			time: candle.time,
+			value: candle.close,
+		}));
+		lineSeries.setData(lineData);
+
 		return () => {
 			if (streamingIntervalRef.current) {
 				clearInterval(streamingIntervalRef.current);
@@ -267,38 +247,6 @@ export const ChartComponent: React.FC = () => {
 		};
 	}, []);
 
-	// Handle mouse interactions based on active tool
-	useEffect(() => {
-		const chart = chartRef.current;
-		const series = candlestickSeriesRef.current;
-
-		if (!chart || !series) return;
-
-		const handleClick = (param: MouseEventParams) => {
-			if (!param.point) return;
-
-			if (activeTool === DrawingToolType.VERTICAL_LINE) {
-				if (param.time) {
-					const vertLine = new VerticalLine(chart, series, param.time, {
-						color: "#4444ff",
-						width: 2,
-						showLabel: true,
-						labelText: "V-Line",
-					});
-					series.attachPrimitive(vertLine);
-					setActiveTool(DrawingToolType.NONE); // Reset tool after drawing
-				}
-			}
-		};
-
-		chart.subscribeClick(handleClick);
-
-		return () => {
-			chart.unsubscribeClick(handleClick);
-		};
-	}, [activeTool]);
-
-	// Add effect to handle visibility changes
 	useEffect(() => {
 		if (volumeSeriesRef.current) {
 			volumeSeriesRef.current.applyOptions({ visible: showVolume });
@@ -308,12 +256,38 @@ export const ChartComponent: React.FC = () => {
 	useEffect(() => {
 		if (volumeProfileRef.current) {
 			volumeProfileRef.current.setVisible(showVPVR);
+			// Force chart to update
+			if (chartRef.current) {
+				const mainScale = chartRef.current.priceScale("right");
+				mainScale.applyOptions(mainScale.options());
+			}
 		}
 	}, [showVPVR]);
 
+	// Add new effect to handle chart type changes
+	useEffect(() => {
+		if (!candlestickSeriesRef.current || !lineSeriesRef.current) return;
+
+		if (chartType === ChartType.CANDLESTICK) {
+			candlestickSeriesRef.current.applyOptions({ visible: true });
+			lineSeriesRef.current.applyOptions({ visible: false });
+		} else {
+			candlestickSeriesRef.current.applyOptions({ visible: false });
+			lineSeriesRef.current.applyOptions({ visible: true });
+		}
+	}, [chartType]);
+
 	return (
 		<div>
-			<div className="flex gap-4 mb-4">
+			<div className="flex gap-4 mb-4 items-center justify-center">
+				<select
+					value={chartType}
+					onChange={(e) => setChartType(e.target.value as ChartType)}
+					className="px-2 py-1 rounded text-white"
+				>
+					<option value={ChartType.CANDLESTICK}>Candlestick</option>
+					<option value={ChartType.LINE}>Line</option>
+				</select>
 				<DrawingToolbar
 					activeTool={activeTool}
 					onToolSelect={setActiveTool}
@@ -341,7 +315,15 @@ export const ChartComponent: React.FC = () => {
 				ref={chartContainerRef}
 				style={{ width: "100%", height: "400px" }}
 				className={`cursor-${activeTool === DrawingToolType.NONE ? "default" : "crosshair"}`}
-			/>
+			>
+				{chartRef.current && candlestickSeriesRef.current && (
+					<DeltaTooltip
+						chart={chartRef.current}
+						series={candlestickSeriesRef.current}
+						activeTool={activeTool}
+					/>
+				)}
+			</div>
 		</div>
 	);
 };
