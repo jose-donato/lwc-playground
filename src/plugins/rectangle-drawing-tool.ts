@@ -23,6 +23,12 @@ interface Point {
 	price: number;
 }
 
+// Add this interface for hit testing
+interface HitTestResult {
+	rectangle: RectanglePrimitive;
+	index: number;
+}
+
 class RectanglePaneView implements ISeriesPrimitivePaneView {
 	private _points: Point[];
 	private _color: string;
@@ -42,6 +48,29 @@ class RectanglePaneView implements ISeriesPrimitivePaneView {
 		this._fillOpacity = fillOpacity;
 		this._series = series;
 		this._chart = chart;
+	}
+
+	// Add method to check if a point is inside the rectangle
+	public hitTest(x: number, y: number): boolean {
+		if (this._points.length < 2) return false;
+
+		const [point1, point2] = this._points;
+
+		// Convert points to coordinates
+		const x1 = this._chart.timeScale().timeToCoordinate(point1.time);
+		const x2 = this._chart.timeScale().timeToCoordinate(point2.time);
+		const y1 = this._series.priceToCoordinate(point1.price);
+		const y2 = this._series.priceToCoordinate(point2.price);
+
+		if (x1 === null || x2 === null || y1 === null || y2 === null) return false;
+
+		// Check if point is inside rectangle
+		const left = Math.min(x1, x2);
+		const right = Math.max(x1, x2);
+		const top = Math.min(y1, y2);
+		const bottom = Math.max(y1, y2);
+
+		return x >= left && x <= right && y >= top && y <= bottom;
 	}
 
 	renderer(): ISeriesPrimitivePaneRenderer {
@@ -158,6 +187,18 @@ export class RectangleDrawingTool {
 
 		this.clickHandler = this.handleClick.bind(this);
 		this.moveHandler = this.handleMouseMove.bind(this);
+
+		// Add click handler for removing rectangles
+		this.chart.subscribeClick((param) => {
+			if (!this.isDrawing && param.point) {
+				const hitTest = this.hitTest(param.point.x, param.point.y);
+				if (hitTest) {
+					if (confirm("Do you want to remove this rectangle?")) {
+						this.removeRectangle(hitTest.index);
+					}
+				}
+			}
+		});
 	}
 
 	public startDrawing(): void {
@@ -179,8 +220,12 @@ export class RectangleDrawingTool {
 	}
 
 	private handleClick(param: MouseEventParams): void {
-		console.log("Click event:", param);
 		if (!param.point || !param.time) return;
+
+		// If we hit an existing rectangle, don't start drawing
+		if (this.hitTest(param.point.x, param.point.y)) {
+			return;
+		}
 
 		const price = this.series.coordinateToPrice(param.point.y);
 		if (price === null) return;
@@ -265,6 +310,30 @@ export class RectangleDrawingTool {
 		if (this.currentRectangle) {
 			this.series.detachPrimitive(this.currentRectangle);
 			this.currentRectangle = null;
+		}
+	}
+
+	// Add method to test if a point hits any rectangle
+	private hitTest(x: number, y: number): HitTestResult | null {
+		for (let i = 0; i < this.rectangles.length; i++) {
+			const rectangle = this.rectangles[i];
+			const paneViews = rectangle.paneViews();
+			if (paneViews.length > 0) {
+				const view = paneViews[0] as RectanglePaneView;
+				if (view.hitTest(x, y)) {
+					return { rectangle, index: i };
+				}
+			}
+		}
+		return null;
+	}
+
+	// Add method to remove a specific rectangle
+	private removeRectangle(index: number): void {
+		if (index >= 0 && index < this.rectangles.length) {
+			const rectangle = this.rectangles[index];
+			this.series.detachPrimitive(rectangle);
+			this.rectangles.splice(index, 1);
 		}
 	}
 }
