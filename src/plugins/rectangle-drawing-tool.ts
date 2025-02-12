@@ -16,6 +16,7 @@ interface RectangleDrawingToolOptions {
 	previewFillColor?: string;
 	labelColor?: string;
 	showLabels?: boolean;
+	onRectangleComplete?: (points: Point[]) => void;
 }
 
 interface Point {
@@ -170,6 +171,7 @@ export class RectangleDrawingTool {
 	private options: Required<RectangleDrawingToolOptions>;
 	private clickHandler: any;
 	private moveHandler: any;
+	private drawingsMap: Map<string, RectanglePrimitive> = new Map();
 
 	constructor(
 		chart: IChartApi,
@@ -183,6 +185,7 @@ export class RectangleDrawingTool {
 			previewFillColor: options.previewFillColor || "rgba(76, 175, 80, 0.2)",
 			labelColor: options.labelColor || "rgba(76, 175, 80, 1)",
 			showLabels: options.showLabels ?? true,
+			onRectangleComplete: options.onRectangleComplete || (() => {}),
 		};
 
 		this.clickHandler = this.handleClick.bind(this);
@@ -278,25 +281,23 @@ export class RectangleDrawingTool {
 		this.chart.timeScale().scrollToPosition(0, false);
 	}
 
-	private createFinalRectangle(endTime: Time, endPrice: number): void {
+	public createFinalRectangle(endTime: Time, endPrice: number): void {
 		if (!this.startPoint) return;
 
-		// Update the current rectangle with final properties
 		if (this.currentRectangle) {
-			this.currentRectangle.updatePoints(
-				[
-					{ time: this.startPoint.time, price: this.startPoint.price },
-					{ time: endTime, price: endPrice },
-				],
-				this.options.fillColor,
-				0.5,
-			);
+			const points = [
+				{ time: this.startPoint.time, price: this.startPoint.price },
+				{ time: endTime, price: endPrice },
+			];
 
-			// Add the current rectangle to our array
+			this.currentRectangle.updatePoints(points, this.options.fillColor, 0.5);
+
 			this.rectangles.push(this.currentRectangle);
-
-			// Set currentRectangle to null without detaching it
+			// Store in map
+			this.drawingsMap.set(JSON.stringify(points), this.currentRectangle);
 			this.currentRectangle = null;
+
+			this.options.onRectangleComplete(points);
 		}
 	}
 
@@ -334,6 +335,16 @@ export class RectangleDrawingTool {
 			const rectangle = this.rectangles[index];
 			this.series.detachPrimitive(rectangle);
 			this.rectangles.splice(index, 1);
+		}
+	}
+
+	public removeDrawingByPoints(points: Point[]): void {
+		const key = JSON.stringify(points);
+		const rectangle = this.drawingsMap.get(key);
+		if (rectangle) {
+			this.series.detachPrimitive(rectangle);
+			this.drawingsMap.delete(key);
+			this.rectangles = this.rectangles.filter((r) => r !== rectangle);
 		}
 	}
 }

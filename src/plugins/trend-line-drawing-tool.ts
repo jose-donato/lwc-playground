@@ -15,6 +15,7 @@ interface TrendLineDrawingToolOptions {
 	previewLineColor?: string;
 	lineWidth?: number;
 	showLabels?: boolean;
+	onLineComplete?: (points: Point[]) => void;
 }
 
 interface Point {
@@ -153,6 +154,7 @@ export class TrendLineDrawingTool {
 	private clickHandler: any;
 	private moveHandler: any;
 	private ignoreNextClick = false;
+	private drawingsMap: Map<string, TrendLinePrimitive> = new Map();
 
 	constructor(
 		chart: IChartApi,
@@ -166,6 +168,7 @@ export class TrendLineDrawingTool {
 			previewLineColor: options.previewLineColor || "rgba(33, 150, 243, 0.5)",
 			lineWidth: options.lineWidth || 2,
 			showLabels: options.showLabels ?? true,
+			onLineComplete: options.onLineComplete || (() => {}),
 		};
 
 		this.clickHandler = this.handleClick.bind(this);
@@ -290,17 +293,22 @@ export class TrendLineDrawingTool {
 		if (!this.startPoint) return;
 
 		if (this.currentLine) {
+			const points = [
+				{ time: this.startPoint.time, price: this.startPoint.price },
+				{ time: endTime, price: endPrice },
+			];
+
 			this.currentLine.updatePoints(
-				[
-					{ time: this.startPoint.time, price: this.startPoint.price },
-					{ time: endTime, price: endPrice },
-				],
+				points,
 				this.options.lineColor,
 				this.options.lineWidth,
 			);
 
 			this.lines.push(this.currentLine);
+			this.drawingsMap.set(JSON.stringify(points), this.currentLine);
 			this.currentLine = null;
+
+			this.options.onLineComplete(points);
 		}
 	}
 
@@ -313,6 +321,16 @@ export class TrendLineDrawingTool {
 		if (this.currentLine) {
 			this.series.detachPrimitive(this.currentLine);
 			this.currentLine = null;
+		}
+	}
+
+	public removeDrawingByPoints(points: Point[]): void {
+		const key = JSON.stringify(points);
+		const line = this.drawingsMap.get(key);
+		if (line) {
+			this.series.detachPrimitive(line);
+			this.drawingsMap.delete(key);
+			this.lines = this.lines.filter((l) => l !== line);
 		}
 	}
 }

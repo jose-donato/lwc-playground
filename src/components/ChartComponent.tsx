@@ -25,6 +25,7 @@ import {
 import { DeltaTooltip } from "./DeltaTooltip";
 import { DrawingToolbar } from "./DrawingToolbar";
 import { DrawingTools } from "./DrawingTools";
+import { DrawingsList } from "./DrawingsList";
 import { RectangleDrawingTool } from "./RectangleDrawingTool";
 import { TrendLineDrawingTool } from "./TrendLineDrawingTool";
 
@@ -338,6 +339,7 @@ export const ChartComponent: React.FC = () => {
 					</>
 				)}
 			</div>
+			<DrawingsList />
 		</div>
 	);
 };
