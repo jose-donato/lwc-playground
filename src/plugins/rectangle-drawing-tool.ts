@@ -80,6 +80,9 @@ class RectanglePaneView implements ISeriesPrimitivePaneView {
 						ctx.strokeStyle = this._color;
 						ctx.lineWidth = 1 * horizontalPixelRatio;
 						ctx.strokeRect(left, top, right - left, bottom - top);
+
+						// Request next frame to ensure smooth updates
+						this._chart.timeScale().scrollToPosition(0, false);
 					},
 				);
 			},
@@ -202,57 +205,47 @@ export class RectangleDrawingTool {
 		const price = this.series.coordinateToPrice(param.point.y);
 		if (price === null) return;
 
-		this.updatePreviewRectangle(param.time, price);
+		if (!this.currentRectangle) {
+			this.currentRectangle = new RectanglePrimitive(
+				[
+					{ time: this.startPoint.time, price: this.startPoint.price },
+					{ time: param.time, price },
+				],
+				this.options.previewFillColor,
+				0.2, // Reduced opacity for preview
+				this.series,
+				this.chart,
+			);
+			this.series.attachPrimitive(this.currentRectangle);
+		} else {
+			this.currentRectangle.updatePoints(
+				[
+					{ time: this.startPoint.time, price: this.startPoint.price },
+					{ time: param.time, price },
+				],
+				this.options.previewFillColor,
+				0.2, // Reduced opacity for preview
+			);
+		}
+
+		// Force a redraw
+		this.chart.timeScale().scrollToPosition(0, false);
 	}
 
 	private createFinalRectangle(endTime: Time, endPrice: number): void {
 		if (!this.startPoint) return;
 
-		// Remove preview rectangle if it exists
+		// Instead of creating a new primitive, update the existing one
 		if (this.currentRectangle) {
-			this.series.detachPrimitive(this.currentRectangle);
+			this.currentRectangle.updatePoints(
+				[
+					{ time: this.startPoint.time, price: this.startPoint.price },
+					{ time: endTime, price: endPrice },
+				],
+				this.options.fillColor,
+				0.5,
+			);
 		}
-
-		// Create the final rectangle primitive
-		this.currentRectangle = new RectanglePrimitive(
-			[
-				{ time: this.startPoint.time, price: this.startPoint.price },
-				{ time: endTime, price: endPrice },
-			],
-			this.options.fillColor,
-			0.5,
-			this.series,
-			this.chart,
-		);
-
-		console.log("Creating final rectangle:", this.currentRectangle);
-		this.series.attachPrimitive(this.currentRectangle);
-	}
-
-	private updatePreviewRectangle(
-		currentTime: Time,
-		currentPrice: number,
-	): void {
-		if (!this.startPoint) return;
-
-		// Remove previous preview rectangle if it exists
-		if (this.currentRectangle) {
-			this.series.detachPrimitive(this.currentRectangle);
-		}
-
-		// Create new preview rectangle
-		this.currentRectangle = new RectanglePrimitive(
-			[
-				{ time: this.startPoint.time, price: this.startPoint.price },
-				{ time: currentTime, price: currentPrice },
-			],
-			this.options.previewFillColor,
-			0.3,
-			this.series,
-			this.chart,
-		);
-
-		this.series.attachPrimitive(this.currentRectangle);
 	}
 
 	public remove(): void {
