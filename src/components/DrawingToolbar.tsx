@@ -18,6 +18,7 @@ export const DrawingToolbar: React.FC<DrawingToolbarProps> = ({
 }) => {
 	const handleToolSelect = useCallback(
 		(tool: DrawingToolType) => {
+			console.log("Selected tool:", tool); // Debug log
 			onToolSelect(tool);
 		},
 		[onToolSelect],

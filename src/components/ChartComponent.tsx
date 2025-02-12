@@ -25,6 +25,7 @@ import {
 import { DeltaTooltip } from "./DeltaTooltip";
 import { DrawingToolbar } from "./DrawingToolbar";
 import { DrawingTools } from "./DrawingTools";
+import { RectangleDrawingTool } from "./RectangleDrawingTool";
 
 interface ChartColors {
 	backgroundColor: string;
@@ -317,11 +318,18 @@ export const ChartComponent: React.FC = () => {
 				className={`cursor-${activeTool === DrawingToolType.NONE ? "default" : "crosshair"}`}
 			>
 				{chartRef.current && candlestickSeriesRef.current && (
-					<DeltaTooltip
-						chart={chartRef.current}
-						series={candlestickSeriesRef.current}
-						activeTool={activeTool}
-					/>
+					<>
+						<DeltaTooltip
+							chart={chartRef.current}
+							series={candlestickSeriesRef.current}
+							activeTool={activeTool}
+						/>
+						<RectangleDrawingTool
+							chart={chartRef.current}
+							series={candlestickSeriesRef.current}
+							active={activeTool === DrawingToolType.RECTANGLE}
+						/>
+					</>
 				)}
 			</div>
 		</div>
