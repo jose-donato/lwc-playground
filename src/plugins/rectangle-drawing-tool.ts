@@ -137,6 +137,7 @@ export class RectangleDrawingTool {
 	private isDrawing = false;
 	private startPoint: Point | null = null;
 	private currentRectangle: RectanglePrimitive | null = null;
+	private rectangles: RectanglePrimitive[] = [];
 	private options: Required<RectangleDrawingToolOptions>;
 	private clickHandler: any;
 	private moveHandler: any;
@@ -235,7 +236,7 @@ export class RectangleDrawingTool {
 	private createFinalRectangle(endTime: Time, endPrice: number): void {
 		if (!this.startPoint) return;
 
-		// Instead of creating a new primitive, update the existing one
+		// Update the current rectangle with final properties
 		if (this.currentRectangle) {
 			this.currentRectangle.updatePoints(
 				[
@@ -245,13 +246,25 @@ export class RectangleDrawingTool {
 				this.options.fillColor,
 				0.5,
 			);
+
+			// Add the current rectangle to our array
+			this.rectangles.push(this.currentRectangle);
+
+			// Set currentRectangle to null without detaching it
+			this.currentRectangle = null;
 		}
 	}
 
 	public remove(): void {
 		this.stopDrawing();
+		// Clean up all rectangles
+		this.rectangles.forEach((rectangle) => {
+			this.series.detachPrimitive(rectangle);
+		});
+		this.rectangles = [];
 		if (this.currentRectangle) {
 			this.series.detachPrimitive(this.currentRectangle);
+			this.currentRectangle = null;
 		}
 	}
 }
