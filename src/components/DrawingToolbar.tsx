@@ -18,27 +18,21 @@ export const DrawingToolbar: React.FC<DrawingToolbarProps> = ({
 }) => {
 	const handleToolSelect = useCallback(
 		(tool: DrawingToolType) => {
-			if (tool === DrawingToolType.VERTICAL_LINE && chart && series) {
-				// Get current time from chart cursor or visible range
-				const visibleRange = chart.timeScale().getVisibleRange();
-				if (visibleRange) {
-					const time = visibleRange.from;
-				}
-			}
 			onToolSelect(tool);
 		},
-		[chart, series, onToolSelect],
+		[onToolSelect],
 	);
 
 	const tools = [
 		{ type: DrawingToolType.NONE, label: "🖐️ Select" },
 		{ type: DrawingToolType.DELTA, label: "📊 Measure" },
+		{ type: DrawingToolType.RECTANGLE, label: "⬜ Rectangle" },
 		/*{ type: DrawingToolType.LINE, label: "📏 Line" },
 		{ type: DrawingToolType.HORIZONTAL_LINE, label: "➖ Horizontal" },
 		{ type: DrawingToolType.VERTICAL_LINE, label: "⋮ Vertical" },
 		{ type: DrawingToolType.TREND_LINE, label: "📈 Trend" },
 		{ type: DrawingToolType.FIBONACCI, label: "🌀 Fibonacci" },
-		{ type: DrawingToolType.RECTANGLE, label: "⬜ Rectangle" },*/
+		*/
 	];
 
 	return (
