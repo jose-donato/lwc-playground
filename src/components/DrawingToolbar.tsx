@@ -28,10 +28,10 @@ export const DrawingToolbar: React.FC<DrawingToolbarProps> = ({
 		{ type: DrawingToolType.NONE, label: "🖐️ Select" },
 		{ type: DrawingToolType.DELTA, label: "📊 Measure" },
 		{ type: DrawingToolType.RECTANGLE, label: "⬜ Rectangle" },
+		{ type: DrawingToolType.TREND_LINE, label: "📈 Trend" },
 		/*{ type: DrawingToolType.LINE, label: "📏 Line" },
 		{ type: DrawingToolType.HORIZONTAL_LINE, label: "➖ Horizontal" },
 		{ type: DrawingToolType.VERTICAL_LINE, label: "⋮ Vertical" },
-		{ type: DrawingToolType.TREND_LINE, label: "📈 Trend" },
 		{ type: DrawingToolType.FIBONACCI, label: "🌀 Fibonacci" },
 		*/
 	];

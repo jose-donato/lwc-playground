@@ -26,6 +26,7 @@ import { DeltaTooltip } from "./DeltaTooltip";
 import { DrawingToolbar } from "./DrawingToolbar";
 import { DrawingTools } from "./DrawingTools";
 import { RectangleDrawingTool } from "./RectangleDrawingTool";
+import { TrendLineDrawingTool } from "./TrendLineDrawingTool";
 
 interface ChartColors {
 	backgroundColor: string;
@@ -278,6 +279,62 @@ export const ChartComponent: React.FC = () => {
 		}
 	}, [chartType]);
 
+	useEffect(() => {
+		if (!chartRef.current) return;
+
+		// When a drawing tool is active, disable chart interactions
+		if (
+			activeTool === DrawingToolType.RECTANGLE ||
+			activeTool === DrawingToolType.TREND_LINE
+		) {
+			chartRef.current.applyOptions({
+				handleScroll: false,
+				handleScale: false,
+				crosshair: {
+					// Enable crosshair for better drawing precision
+					mode: 1,
+					vertLine: {
+						width: 1,
+						color: "#ffffff33",
+						style: 2,
+						visible: true,
+						labelVisible: false,
+					},
+					horzLine: {
+						width: 1,
+						color: "#ffffff33",
+						style: 2,
+						visible: true,
+						labelVisible: true,
+					},
+				},
+			});
+		} else {
+			// Re-enable chart interactions when no drawing tool is active
+			chartRef.current.applyOptions({
+				handleScroll: true,
+				handleScale: true,
+				crosshair: {
+					mode: 1,
+					vertLine: {
+						width: 1,
+						color: "#ffffff33",
+						style: 2,
+						visible: true,
+						labelVisible: true,
+					},
+					horzLine: {
+						width: 1,
+						color: "#ffffff33",
+						style: 2,
+						visible: true,
+						labelVisible: true,
+					},
+				},
+			});
+		}
+	}, [activeTool]);
+
 	return (
 		<div>
 			<div className="flex gap-4 mb-4 items-center justify-center">
@@ -328,6 +385,11 @@ export const ChartComponent: React.FC = () => {
 							chart={chartRef.current}
 							series={candlestickSeriesRef.current}
 							active={activeTool === DrawingToolType.RECTANGLE}
+						/>
+						<TrendLineDrawingTool
+							chart={chartRef.current}
+							series={candlestickSeriesRef.current}
+							active={activeTool === DrawingToolType.TREND_LINE}
 						/>
 					</>
 				)}
